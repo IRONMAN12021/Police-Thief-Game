@@ -1,13 +1,16 @@
 import pygame
-import requests
-from flask_socketio import SocketIO
-from threading import Thread
+from pygame.locals import *
 import random
 
-# Pygame Setup
+# Initialize Pygame
 pygame.init()
 
+# Screen dimensions
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Police and Thief Game")
+
+# Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
@@ -15,124 +18,110 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Online Police and Thief Game")
+# Fonts
+font = pygame.font.Font(None, 36)
+title_font = pygame.font.Font(None, 64)
 
-clock = pygame.time.Clock()
-
-# Load images
+# Load Images
 police_img = pygame.image.load("police.png")
 thief_img = pygame.image.load("thief.png")
+background_img = pygame.image.load("background.png")
 
-# Resize images
+# Resizing Images
 police_img = pygame.transform.scale(police_img, (50, 50))
 thief_img = pygame.transform.scale(thief_img, (50, 50))
+background_img = pygame.transform.scale(background_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# Flask-SocketIO Setup
-socketio = SocketIO(message_queue='http://localhost:5000')
+# Game states
+START_SCREEN = "start"
+HOME_SCREEN = "home"
+GAME_SCREEN = "game"
+MENU_SCREEN = "menu"
+LEADERBOARD_SCREEN = "leaderboard"
+SETTINGS_SCREEN = "settings"
 
-player_id = random.randint(1000, 9999)
-player_type = 'police' if random.choice([True, False]) else 'thief'
-players = {}
-leaderboard = {}
-thief_position = None
-points = 0
+game_state = START_SCREEN
 
-def handle_player_joined(data):
-    players[data['player_id']] = data
+# Utility functions
+def draw_text(text, font, color, surface, x, y):
+    text_obj = font.render(text, True, color)
+    text_rect = text_obj.get_rect(center=(x, y))
+    surface.blit(text_obj, text_rect)
 
-def handle_current_players(data):
-    global players
-    players = data
+def start_screen():
+    screen.blit(background_img, (0, 0))
+    draw_text("Police and Thief Game", title_font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    draw_text("Press Enter to Start", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    pygame.display.update()
 
-def handle_player_moved(data):
-    players[data['player_id']] = data
+def home_screen():
+    screen.fill(GREEN)
+    draw_text("Home Screen", title_font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    draw_text("Press 'S' to Start Game", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    draw_text("Press 'L' to View Leaderboard", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50)
+    draw_text("Press 'O' for Settings", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100)
+    pygame.display.update()
 
-def handle_game_started(data):
-    global thief_position
-    thief_position = (random.randint(50, 750), random.randint(50, 550))
+def game_screen():
+    screen.fill(BLUE)
+    draw_text("Game Screen - Police and Thief", title_font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    # Game logic here
+    pygame.display.update()
 
-def handle_booster_activated(data):
-    if data['player_id'] == player_id and data['booster_type'] == 'silent_movement':
-        print("Silent Movement Booster Activated")
+def menu_screen():
+    screen.fill(RED)
+    draw_text("Menu Screen", title_font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    draw_text("Press 'R' to Resume", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    draw_text("Press 'Q' to Quit", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50)
+    pygame.display.update()
 
-def handle_points_updated(data):
-    if data['player_id'] == player_id:
-        global points
-        points = data['points']
+def leaderboard_screen():
+    screen.fill(YELLOW)
+    draw_text("Leaderboard", title_font, BLACK, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    # Leaderboard logic here
+    pygame.display.update()
 
-def handle_leaderboard_updated(data):
-    global leaderboard
-    leaderboard = data
+def settings_screen():
+    screen.fill(BLACK)
+    draw_text("Settings", title_font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4)
+    draw_text("Adjust settings here", font, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    pygame.display.update()
 
-socketio.on_event('player_joined', handle_player_joined)
-socketio.on_event('current_players', handle_current_players)
-socketio.on_event('player_moved', handle_player_moved)
-socketio.on_event('game_started', handle_game_started)
-socketio.on_event('booster_activated', handle_booster_activated)
-socketio.on_event('points_updated', handle_points_updated)
-socketio.on_event('leaderboard_updated', handle_leaderboard_updated)
+# Game loop
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == QUIT:
+            running = False
+        elif event.type == KEYDOWN:
+            if game_state == START_SCREEN:
+                if event.key == K_RETURN:
+                    game_state = HOME_SCREEN
+            elif game_state == HOME_SCREEN:
+                if event.key == K_s:
+                    game_state = GAME_SCREEN
+                elif event.key == K_l:
+                    game_state = LEADERBOARD_SCREEN
+                elif event.key == K_o:
+                    game_state = SETTINGS_SCREEN
+            elif game_state == MENU_SCREEN:
+                if event.key == K_r:
+                    game_state = GAME_SCREEN
+                elif event.key == K_q:
+                    running = False
 
-def move_player(direction):
-    socketio.emit('move_player', {'player_id': player_id, 'direction': direction})
+    if game_state == START_SCREEN:
+        start_screen()
+    elif game_state == HOME_SCREEN:
+        home_screen()
+    elif game_state == GAME_SCREEN:
+        game_screen()
+    elif game_state == MENU_SCREEN:
+        menu_screen()
+    elif game_state == LEADERBOARD_SCREEN:
+        leaderboard_screen()
+    elif game_state == SETTINGS_SCREEN:
+        settings_screen()
 
-def use_booster(booster_type):
-    socketio.emit('use_booster', {'player_id': player_id, 'booster_type': booster_type})
+pygame.quit()
 
-def draw_leaderboard():
-    font = pygame.font.Font(None, 36)
-    y_offset = 20
-    for pid, points in sorted(leaderboard.items(), key=lambda item: item[1], reverse=True):
-        leaderboard_text = font.render(f"Player {pid}: {points} pts", True, BLACK)
-        screen.blit(leaderboard_text, (600, y_offset))
-        y_offset += 40
-
-def main():
-    global player_id, player_type, points
-    socketio.emit('join_game', {'player_id': player_id, 'player_type': player_type})
-    
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            move_player('left')
-        if keys[pygame.K_RIGHT]:
-            move_player('right')
-        if keys[pygame.K_UP]:
-            move_player('up')
-        if keys[pygame.K_DOWN]:
-            move_player('down')
-        if keys[pygame.K_SPACE]:
-            use_booster('silent_movement')
-        
-        screen.fill(WHITE)
-        
-        # Draw players
-        for pid, pdata in players.items():
-            if pdata['type'] == 'police':
-                screen.blit(police_img, (pdata['x'], pdata['y']))
-            else:
-                screen.blit(thief_img, (pdata['x'], pdata['y']))
-
-        # Draw leaderboard
-        draw_leaderboard()
-
-        # Draw player points
-        font = pygame.font.Font(None, 36)
-        points_text = font.render(f"Points: {points}", True, YELLOW)
-        screen.blit(points_text, (20, 20))
-
-        pygame.display.flip()
-        clock.tick(30)
-
-    pygame.quit()
-
-# Run the client
-if __name__ == '__main__':
-    thread = Thread(target=main)
-    thread.start()
-    socketio.run(app)
